@@ -3,14 +3,14 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { connectDb } from "./config/connectDB";
 import type { NextFunction, Request, Response } from "express";
-import { authRoutes } from "./routes/authRoutes";
-import { panelRoutes } from "./routes/panel-Routes";
-import { todoRoutes } from "./routes/todo-Routes";
+import { authRoutes } from "./routes/auth-routes";
+import { panelRoutes } from "./routes/panel-routes";
+import { todoRoutes } from "./routes/todo-routes";
 import path from "path";
 import { verifyFacebookToken } from "./core/middleware/facebook-auth";
 import { verifyGitHubToken } from "./core/middleware/github-auth";
 import { authentication } from "./core/middleware/authentication";
-import { userRoutes } from "./routes/userRoutes";
+import { userRoutes } from "./routes/user-routes";
 
 dotenv.config();
 connectDb();
