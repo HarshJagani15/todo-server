@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { connectDb } from "./config/connectDB";
+import { connectMongodbDatabase } from "./config/connectDB";
 import type { NextFunction, Request, Response } from "express";
 import { authRoutes } from "./routes/auth-routes";
 import { panelRoutes } from "./routes/panel-routes";
@@ -13,7 +13,7 @@ import { authentication } from "./core/middleware/authentication";
 import { userRoutes } from "./routes/user-routes";
 
 dotenv.config();
-connectDb();
+connectMongodbDatabase();
 
 const app = express();
 

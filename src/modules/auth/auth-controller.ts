@@ -1,42 +1,53 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
-import { userModel } from "../models/user-model";
+import { IUserDocument } from "../../../models/user-model";
 import axios from "axios";
-import { refreshFacebookToken } from "../utils/refresh-facebook-token";
-import { refreshGitHubToken } from "../utils/refresh-github-token";
-import { refreshJwtAuthToken } from "../utils/refresh-jwt-auth-token";
+import { refreshFacebookToken } from "../../../utils/refresh-facebook-token";
+import { refreshGitHubToken } from "../../../utils/refresh-github-token";
+import { refreshJwtAuthToken } from "../../../utils/refresh-jwt-auth-token";
+import {
+  addNewFacebookUser,
+  addNewUser,
+  findUser,
+  saveToken,
+} from "./auth-repository";
+import {
+  comparePassword,
+  generateRefreshToken,
+  generateToken,
+  passwordEncryption,
+} from "./auth-services";
 
-export const loginController = async (req: Request, res: Response) => {
+export const signInController = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const user: any = await userModel.findOne({ email });
+    const user: IUserDocument | null = await findUser(email);
+
     if (!user) {
-      res.status(404).send({ success: false, message: "Email not found" });
-      return;
-    }
-    if (user.loginType === "email") {
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      res.status(404).send({
+        success: false,
+        message:
+          "Email address you're using is not associated with any account",
+      });
+    } else if (user.loginType === "email") {
+      const isPasswordValid = await comparePassword(password, user.password);
       if (!isPasswordValid) {
         res
           .status(401)
-          .send({ success: false, message: "Invalid credentials" });
-        return;
+          .json({ success: false, message: "Invalid credentials" });
+      } else {
+        const token = generateToken(email);
+        const refreshToken = generateRefreshToken(email);
+        res.status(200).json({
+          success: true,
+          token,
+          refreshToken,
+          message: "Login successful!",
+        });
       }
-      const secretKey: string = process.env.JWT_SECRET!;
-      const token = jwt.sign({ email }, secretKey, { expiresIn: "24h" });
-      const refreshToken = jwt.sign({ email }, secretKey, { expiresIn: "30d" });
-      res.status(200).json({
-        success: true,
-        token,
-        refreshToken,
-        message: "Login successful!",
-      });
-      return;
     } else {
       res.status(409).json({
         success: false,
-        message: "Email registered with another account!",
+        message: "Email already associated with another account",
       });
     }
   } catch (error) {
@@ -47,29 +58,29 @@ export const loginController = async (req: Request, res: Response) => {
   }
 };
 
-export const registerController = async (req: Request, res: Response) => {
+export const signUpController = async (req: Request, res: Response) => {
   try {
     const { userName, email, password, loginType } = req.body;
 
-    const user = await userModel.findOne({ email });
+    const user: IUserDocument | null = await findUser(email);
     if (!user) {
-      const encryptedPassword = await bcrypt.hash(password, 10);
-      const newUser = new userModel({
-        name: userName,
+      const encryptedPassword = await passwordEncryption(password);
+      await addNewUser({
+        userName,
         email,
         password: encryptedPassword,
-        loginType: loginType,
-        profileImage: "",
+        profilePicture: "",
+        loginType,
       });
-      await newUser.save();
       res.status(201).json({
         success: true,
         message: "Registration successful!",
       });
     } else {
-      res
-        .status(409)
-        .json({ success: false, message: "Email or username already exists" });
+      res.status(409).json({
+        success: false,
+        message: "Email already associated with another account",
+      });
     }
   } catch (error) {
     res.status(400).json({
@@ -79,17 +90,12 @@ export const registerController = async (req: Request, res: Response) => {
   }
 };
 
-export const githubLoginController = async (
+export const githubSignInController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   const { code } = req.body;
 
-  if (!code) {
-    res
-      .status(400)
-      .json({ success: false, error: "Authorization code is required" });
-  }
   try {
     const response = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -124,42 +130,36 @@ export const githubLoginController = async (
 
     const primaryEmail = emails.find((email: any) => email.primary)?.email;
 
-    const loginUser = await userModel.findOne({ email: primaryEmail });
+    const loginUser: IUserDocument | null = await findUser(primaryEmail);
 
     if (!loginUser) {
       res.status(404).json({
         success: false,
         message: "Email Not Registered !",
       });
+    } else if (loginUser.loginType === "github") {
+      res.status(200).json({
+        success: true,
+        token: access_token,
+        message: "Login with Github succesfully",
+      });
     } else {
-      if (loginUser.loginType === "github") {
-        res.status(200).json({
-          success: true,
-          token: access_token,
-          message: "Login with Github succesfully",
-        });
-      } else {
-        res.status(409).json({
-          success: false,
-          message: "Email Registered With Another Account!",
-        });
-      }
+      res.status(409).json({
+        success: false,
+        message: "Email already associated with another account",
+      });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
-export const githubRegisterController = async (
+export const githubSignUpController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   const { code, loginType } = req.body;
-  if (!code) {
-    res
-      .status(400)
-      .json({ success: false, error: "Authorization code is required" });
-  }
+
   try {
     const response = await axios.post(
       "https://github.com/login/oauth/access_token",
@@ -182,49 +182,49 @@ export const githubRegisterController = async (
       res
         .status(500)
         .json({ success: false, error: "Failed to retrieve access token" });
-      return;
-    }
-    const { data: user } = await axios.get("https://api.github.com/user", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-
-    const { data: emails } = await axios.get(
-      "https://api.github.com/user/emails",
-      {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }
-    );
-
-    const primaryEmail = emails.find((email: any) => email.primary)?.email;
-
-    const loginUser = await userModel.findOne({ email: primaryEmail });
-
-    if (!loginUser) {
-      const newUser = new userModel({
-        name: user.login,
-        email: primaryEmail,
-        password: "",
-        profileImage: user.avatar_url,
-        loginType: loginType,
-      });
-      await newUser.save();
-      res.status(201).json({
-        success: true,
-        token: access_token,
-        message: "Email Registered Successfully",
-      });
     } else {
-      res.status(409).json({
-        success: false,
-        message: "Email Already Registered!",
+      const { data: user } = await axios.get("https://api.github.com/user", {
+        headers: { Authorization: `Bearer ${access_token}` },
       });
+
+      const { data: emails } = await axios.get(
+        "https://api.github.com/user/emails",
+        {
+          headers: { Authorization: `Bearer ${access_token}` },
+        }
+      );
+
+      const primaryEmail = emails.find((email: any) => email.primary)?.email;
+
+      const loginUser: IUserDocument | null = await findUser(primaryEmail);
+
+      if (!loginUser) {
+        addNewUser({
+          userName: user.login,
+          email: primaryEmail,
+          password: "",
+          profilePicture: user.avatar_url,
+          loginType: loginType,
+        });
+
+        res.status(201).json({
+          success: true,
+          token: access_token,
+          message: "Email Registered Successfully",
+        });
+      } else {
+        res.status(409).json({
+          success: false,
+          message: "Email already associated with another account",
+        });
+      }
     }
   } catch (error) {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
-export const facebookLoginController = async (
+export const facebookSignInController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -264,39 +264,29 @@ export const facebookLoginController = async (
       }
     );
 
-    // await axios.delete(`https://graph.facebook.com/v19.0/me/permissions`, {
-    //   params: {
-    //     access_token: accessToken, // Pass the token you want to revoke
-    //   },
-    // });
-
     const longLivedToken = exchangeResponse.data.access_token;
     const expiresIn = exchangeResponse.data.expires_in;
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
-    const user = await userModel.findOne({ email });
+    const user: IUserDocument | null = await findUser(email);
 
     if (!user) {
       res
         .status(404)
         .json({ success: false, message: "Email Not Registered!" });
+    } else if (user?.loginType !== "facebook") {
+      res.status(409).json({
+        success: false,
+        message: "Email already associated with another account",
+      });
     } else {
-      if (user?.loginType !== "facebook") {
-        res.status(409).json({
-          success: false,
-          message: "Email Registered With Another Account!",
-        });
-      } else {
-        user.refreshToken = longLivedToken;
-        user.refreshTokenExpiry = expiresAt;
-        await user.save();
+      await saveToken({ user, longLivedToken, expiresAt });
 
-        res.status(200).json({
-          success: true,
-          token: longLivedToken,
-          message: "Login with Facebook successful",
-        });
-      }
+      res.status(200).json({
+        success: true,
+        token: longLivedToken,
+        message: "Login with Facebook successful",
+      });
     }
   } catch (error) {
     res
@@ -305,7 +295,7 @@ export const facebookLoginController = async (
   }
 };
 
-export const facebookRegisterController = async (
+export const facebookSignUpController = async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -344,28 +334,25 @@ export const facebookRegisterController = async (
       }
     );
 
-    // await axios.delete(`https://graph.facebook.com/v19.0/me/permissions`, {
-    //   params: {
-    //     access_token: accessToken, // Pass the token you want to revoke
-    //   },
-    // });
-
     const longLivedToken = exchangeResponse.data.access_token;
     const expiresIn = exchangeResponse.data.expires_in;
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
-    const loginUser = await userModel.findOne({ email: email });
+    const loginUser = await findUser(email);
+
     if (!loginUser) {
-      const newUser = new userModel({
-        name: name,
-        email: email,
+      const requestPayload = {
+        name,
+        email,
         password: "",
-        profileImage: picture.data.url,
+        profilePicture: picture.data.url,
         loginType: loginType,
         refreshToken: longLivedToken,
         refreshTokenExpiry: expiresAt,
-      });
-      await newUser.save();
+      };
+
+      addNewFacebookUser(requestPayload);
+
       res.status(201).json({
         success: true,
         token: longLivedToken,
@@ -374,7 +361,7 @@ export const facebookRegisterController = async (
     } else {
       res.status(409).json({
         success: false,
-        message: "Email Already Registered!",
+        message: "Email already associated with another account",
       });
     }
   } catch (error) {

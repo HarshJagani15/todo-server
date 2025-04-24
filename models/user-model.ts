@@ -1,8 +1,21 @@
 import mongoose from "mongoose";
+import { Document } from "mongoose";
 
-const userSchema = new mongoose.Schema(
+export interface IUser {
+  name: string;
+  email: string;
+  password: string;
+  profilePicture: string;
+  loginType: string;
+  refreshToken: string;
+  refreshTokenExpiry: number;
+}
+
+export type IUserDocument = IUser & Document;
+
+const userSchema = new mongoose.Schema<IUserDocument>(
   {
-    name: {
+    name: { 
       type: String,
       required: [true, "name is required"],
     },
@@ -14,7 +27,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
     },
-    profileImage: {
+    profilePicture: {
       type: String,
     },
     loginType: {

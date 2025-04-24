@@ -1,29 +1,28 @@
 import { Request, Response } from "express";
-import { TodoModel } from "../models/todo-model";
-import { CommentModel } from "../models/comment-model";
-import { PanelModel } from "../models/panel-model";
+import {
+  addNewComment,
+  addNewTodo,
+  changeTodoStatus,
+  deleteExistingComment,
+  editExistingComment,
+  findPrevTodo,
+  removeTodo,
+  TodoHistoryUpdate,
+  updateTodoDescription,
+  updateTodoHeading,
+} from "./todo-repository";
 
-export const dragDropTodos = async (req: Request, res: Response) => {
+export const updateTodoStatus = async (req: Request, res: Response) => {
   try {
     const { todoId, sourcePanelId, targetPanelId } = req.body;
-    await TodoModel.findByIdAndUpdate(todoId, { panel: targetPanelId });
-    await PanelModel.findByIdAndUpdate(
-      sourcePanelId,
-      { $pull: { todos: todoId } },
-      { new: true }
-    );
-    await PanelModel.findByIdAndUpdate(
-      targetPanelId,
-      { $push: { todos: todoId } },
-      { new: true }
-    );
+    await changeTodoStatus({ todoId, sourcePanelId, targetPanelId });
     res
       .status(200)
       .json({ success: true, todoId, sourcePanelId, targetPanelId });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Fail to dragdrop Todo!",
+      message: "Internal Server Error!",
       error,
     });
   }
@@ -31,21 +30,9 @@ export const dragDropTodos = async (req: Request, res: Response) => {
 
 export const addTodo = async (req: Request, res: Response) => {
   try {
-    const { heading, _id } = req.body;
+    const { _id, heading } = req.body;
+    const addedTodo = await addNewTodo({ id: _id, heading });
 
-    const addedTodo = await TodoModel.create({
-      heading,
-      description: "",
-      comments: [],
-      histories: [],
-      panel: _id,
-    });
-
-    await PanelModel.findByIdAndUpdate(
-      _id,
-      { $push: { todos: addedTodo._id } },
-      { new: true }
-    );
     res.status(200).json({ success: true, addedTodo, _id });
   } catch (error) {
     res.status(500).json({
@@ -58,15 +45,12 @@ export const addTodo = async (req: Request, res: Response) => {
 
 export const editTodoHeading = async (req: Request, res: Response) => {
   try {
-    const { heading, _id } = req.body;
+    const { _id, heading } = req.body;
 
-    const prevTodo = await TodoModel.findById(_id);
-    const newTodo = await TodoModel.findByIdAndUpdate(
-      _id,
-      { heading },
-      { new: true }
-    );
+    const prevTodo = await findPrevTodo(_id);
+
     if (prevTodo?.heading !== heading) {
+      const newTodo = await updateTodoHeading({ id: _id, heading });
       const history = {
         timestamp: new Date().toISOString(),
         field: "Heading",
@@ -79,13 +63,7 @@ export const editTodoHeading = async (req: Request, res: Response) => {
           description: newTodo?.description,
         },
       };
-      const updatedTodo = await TodoModel.findByIdAndUpdate(
-        _id,
-        {
-          $push: { histories: history },
-        },
-        { new: true }
-      );
+      const updatedTodo = await TodoHistoryUpdate({ id: _id, history });
 
       updatedTodo?.histories.sort(
         (a: any, b: any) =>
@@ -99,10 +77,9 @@ export const editTodoHeading = async (req: Request, res: Response) => {
         history: updatedTodo?.histories,
       });
     } else {
-      res.status(200).json({
-        success: true,
-        heading: newTodo?.heading,
-        todo_id: newTodo?._id,
+      res.status(409).json({
+        success: false,
+        message: "Same as previous one",
       });
     }
   } catch (error) {
@@ -117,14 +94,10 @@ export const editTodoHeading = async (req: Request, res: Response) => {
 export const editTodoDescription = async (req: Request, res: Response) => {
   try {
     const { description, _id } = req.body;
-    const prevTodo = await TodoModel.findById(_id);
-    const newTodo = await TodoModel.findByIdAndUpdate(
-      _id,
-      { description },
-      { new: true }
-    );
+    const prevTodo = await findPrevTodo(_id);
 
     if (prevTodo?.description !== description) {
+      const newTodo = await updateTodoDescription({ id: _id, description });
       const history = {
         timestamp: new Date().toISOString(),
         field: "Description",
@@ -137,13 +110,7 @@ export const editTodoDescription = async (req: Request, res: Response) => {
           description: newTodo?.description,
         },
       };
-      const updatedTodo = await TodoModel.findByIdAndUpdate(
-        _id,
-        {
-          $push: { histories: history },
-        },
-        { new: true }
-      );
+      const updatedTodo = await TodoHistoryUpdate({ id: _id, history });
 
       updatedTodo?.histories.sort(
         (a: any, b: any) =>
@@ -170,10 +137,12 @@ export const editTodoDescription = async (req: Request, res: Response) => {
 export const deleteTodo = async (req: Request, res: Response) => {
   try {
     const { _id } = req.body;
-    await TodoModel.findByIdAndDelete(_id);
-    res
-      .status(204)
-      .json({ success: true, message: "Todo deleted successfully" });
+    const deletedTodoId = await removeTodo(_id);
+    res.status(204).json({
+      success: true,
+      message: "Todo deleted successfully",
+      id: deletedTodoId,
+    });
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -187,15 +156,7 @@ export const addComment = async (req: Request, res: Response) => {
   try {
     const { comment, _id } = req.body;
 
-    const newComment = await CommentModel.create({
-      comment,
-      date: Date.now(),
-      todo: _id,
-    });
-
-    await TodoModel.findByIdAndUpdate(_id, {
-      $push: { comments: newComment._id },
-    });
+    const newComment = await addNewComment({ id: _id, comment });
 
     res.status(200).json({ success: true, comment: newComment, todo_id: _id });
   } catch (error) {
@@ -211,16 +172,14 @@ export const editComment = async (req: Request, res: Response) => {
   try {
     const { todo_id, comment, _id } = req.body;
 
-    const updatedComment = await CommentModel.findByIdAndUpdate(_id, {
-      $set: {
-        comment: comment,
-        date: Date.now(),
-      },
-    });
+    const updatedComment = await editExistingComment({ id: _id, comment });
 
-    res
-      .status(200)
-      .json({ success: true, todo_id, newComment: updatedComment, _id });
+    res.status(200).json({
+      success: true,
+      newUpdatedComment: updatedComment?.comment,
+      commentId: updatedComment?._id,
+      todoId: todo_id,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -234,13 +193,16 @@ export const deleteComment = async (req: Request, res: Response) => {
   try {
     const { todo_id, comment_id } = req.query;
 
-    await CommentModel.findByIdAndDelete(comment_id);
-    await TodoModel.findByIdAndUpdate(
-      todo_id,
-      { $pull: { comments: comment_id } },
-      { new: true }
-    );
-    res.status(200).json({ success: true, todo_id, comment_id });
+    const deletedComment = await deleteExistingComment({
+      todoId: todo_id as object,
+      commentId: comment_id as object,
+    });
+    res.status(200).json({
+      success: true,
+      message: "Comment deleted successfully",
+      todoId: todo_id,
+      commentId: deletedComment?._id,
+    });
   } catch (error) {
     res.status(400).json({
       success: false,

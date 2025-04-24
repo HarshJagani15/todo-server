@@ -51,13 +51,7 @@ export const verifyFacebookToken = async (
 
         const currentTime = Math.floor(Date.now() / 1000);
         const FIVE_DAYS_IN_SECONDS = 5 * 24 * 60 * 60;
-        if (
-          refreshTokenExpiry - currentTime <
-          FIVE_DAYS_IN_SECONDS
-          // &&
-          // !req.url.startsWith("/api/v1/users/refresh-token")
-        ) {
-
+        if (refreshTokenExpiry - currentTime < FIVE_DAYS_IN_SECONDS) {
           return res
             .status(401)
             .json({ message: "Provided token is invalid or expired!" });
