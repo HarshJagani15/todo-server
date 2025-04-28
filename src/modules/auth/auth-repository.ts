@@ -1,60 +1,54 @@
-import { IUserDocument, userModel } from "../../../models/user-model";
+import { IUser, IUserDocument, userModel } from "../../../models/user-model";
+import { NotFoundException } from "../../../utils/error-exceptions";
 
-interface IAddNewUser {
-  userName: string;
-  email: string;
-  password: string;
-  profilePicture: string;
-  loginType: string;
-}
-
-interface ISaveToken {
-  user: IUserDocument;
+interface IUserToken {
+  loginUser: IUserDocument;
   longLivedToken: string;
   expiresAt: number;
 }
 
-interface IAddNewFacebookUser {
-  name: string;
-  email: string;
-  password: string;
-  profilePicture: string;
-  loginType: string;
-  refreshToken: string;
-  refreshTokenExpiry: number;
-}
+export const findUserByEmail = async (email: string) => {
+  const user = await userModel.findOne({ email });
 
-export const findUser = async (email: string) => {
+  if (!user) {
+    throw new NotFoundException(
+      "Email address you're using is not associated with any account"
+    );
+  }
+  return user;
+};
+
+export const checkAlreadyRegistered = async (email: string) => {
   const user = await userModel.findOne({ email });
   return user;
 };
 
-export const addNewUser = async (payload: IAddNewUser) => {
-  const newUser = new userModel({
-    name: payload.userName,
-    email: payload.email,
-    password: payload.password,
-    profilePicture: payload.profilePicture,
-    loginType: payload.loginType,
-  });
-  await newUser.save();
-};
-
-export const saveToken = async (payload: ISaveToken) => {
-  payload.user.refreshToken = payload.longLivedToken;
-  payload.user.refreshTokenExpiry = payload.expiresAt;
-  await payload.user.save();
-};
-
-export const addNewFacebookUser = async (payload: IAddNewFacebookUser) => {
+export const addNewUser = async (payload: IUser) => {
   const newUser = new userModel({
     name: payload.name,
     email: payload.email,
     password: payload.password,
-    profileImage: payload.profilePicture,
-    loginType: payload.loginType,
-    refreshToken: payload.refreshToken,
-    refreshTokenExpiry: payload.refreshTokenExpiry,
+    profile_picture: payload.profile_picture,
+    login_type: payload.login_type,
+  });
+  await newUser.save();
+};
+
+export const saveTokenInfoInDB = async (payload: IUserToken) => {
+  payload.loginUser.refresh_token = payload.longLivedToken;
+  payload.loginUser.refresh_token_expiry = payload.expiresAt;
+  await payload.loginUser.save();
+};
+
+export const addNewFacebookUser = async (payload: IUser) => {
+  const newUser = new userModel({
+    name: payload.name,
+    email: payload.email,
+    password: payload.password,
+    profile_picture: payload.profile_picture,
+    login_type: payload.login_type,
+    refresh_token: payload.refresh_token,
+    refresh_token_expiry: payload.refresh_token_expiry,
   });
   await newUser.save();
 };

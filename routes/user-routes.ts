@@ -6,7 +6,7 @@ import {
 import {
   updateProfilePicture,
   uploadPicture,
-} from "../utils/profile-picture-util";
+} from "../utils/profile-picture";
 import { editUserNameValidation } from "../src/modules/user/dtos/edit-username-dto";
 import { validateRequest } from "../core/middleware/validator";
 

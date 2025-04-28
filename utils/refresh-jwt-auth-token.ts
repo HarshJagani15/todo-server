@@ -1,27 +1,37 @@
-import { Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { NextFunction, Request, Response } from "express";
+import jwt, { JwtPayload } from "jsonwebtoken";
+import { UnauthorizedException } from "./error-exceptions";
 
-export const refreshJwtAuthToken = async (req: Request, res: Response) => {
-  const { refreshToken } = req.body;
+export const refreshJwtAuthToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET!);
-
-    if (!decoded) {
-      res
-        .status(401)
-        .json({ error: "Provided Refresh Token Is Invalid Or Expired!" });
-    } else {
-      const { email } = decoded as any;
-      const accessToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
-        expiresIn: "24h",
-      });
-      const refreshToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
-        expiresIn: "30d",
-      });
-
-      res.status(201).json({ accessToken, refreshToken });
+    let decoded;
+    try {
+      const { refreshToken } = req.body;
+      decoded = jwt.verify(refreshToken, process.env.JWT_SECRET!);
+    } catch (error) {
+      throw new UnauthorizedException(
+        "Provided refresh token is invalid or expired."
+      );
     }
+    const { email } = decoded as JwtPayload;
+    const accessToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
+      expiresIn: "24h",
+    });
+    const refreshToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
+      expiresIn: "30d",
+    });
+
+    res.status(201).json({
+      success: true,
+      accessToken,
+      refreshToken,
+      message: "Token Refreshed Successfully",
+    });
   } catch (error) {
-    res.status(400).json({ error: "Unauthorized Access!" });
+    next(error);
   }
 };

@@ -1,10 +1,13 @@
+import { ITodo } from "../models/todo-model";
+
 interface Params {
   search: string;
   searchFields: string[];
 }
 
-export class QueryHelper<T> {
-  private data: any;
+
+export class QueryHelper<T extends { todos: ITodo[] }> {
+  private data: T[];
 
   constructor(data: T[]) {
     this.data = data;

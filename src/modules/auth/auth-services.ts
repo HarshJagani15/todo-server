@@ -10,14 +10,16 @@ export const comparePassword = async (
 };
 
 export const generateToken = (email: string) => {
-  const secretKey: string = process.env.JWT_SECRET!;
-  const token = jwt.sign({ email }, secretKey, { expiresIn: "24h" });
+  const token = jwt.sign({ email }, process.env.JWT_SECRET!, {
+    expiresIn: "24h",
+  });
   return token;
 };
 
 export const generateRefreshToken = (email: string) => {
-  const secretKey: string = process.env.JWT_SECRET!;
-  const refreshToken = jwt.sign({ email }, secretKey, { expiresIn: "30d" });
+  const refreshToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
+    expiresIn: "30d",
+  });
   return refreshToken;
 };
 

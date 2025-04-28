@@ -1,10 +1,20 @@
 import mongoose from "mongoose";
+import { Document } from "mongoose";
+import { ITodo } from "./todo-model";
 
-const panelSchema = new mongoose.Schema(
+export interface IPanel {
+  _id: object;
+  name: string;
+  todos: ITodo[];
+}
+
+export type IPanelDocument = IPanel & Document;
+
+const panelSchema = new mongoose.Schema<IPanelDocument>(
   {
     name: {
       type: String,
-      required: [true, "Name is required"],
+      required: true,
     },
     todos: {
       type: [
@@ -13,7 +23,7 @@ const panelSchema = new mongoose.Schema(
           ref: "Todo",
         },
       ],
-      required: [true, "Todos is required"],
+      required: true,
     },
   },
   { timestamps: true }

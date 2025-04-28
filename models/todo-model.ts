@@ -1,6 +1,32 @@
 import mongoose from "mongoose";
+import { Document } from "mongoose";
+import { IComment } from "./comment-model";
 
-const todoSchema = new mongoose.Schema(
+export type ITodoDocument = ITodo & Document;
+
+export interface IHistory {
+  timestamp: string;
+  field: string;
+  previous: {
+    heading: string;
+    description: string | null;
+  };
+  updated: {
+    heading: string;
+    description: string | null;
+  };
+}
+
+export interface ITodo {
+  _id: object;
+  heading: string;
+  description: string;
+  comments: IComment[];
+  histories: IHistory[];
+  panel: object;
+}
+
+const todoSchema = new mongoose.Schema<ITodoDocument>(
   {
     heading: {
       type: String,
@@ -16,7 +42,7 @@ const todoSchema = new mongoose.Schema(
           ref: "Comment",
         },
       ],
-      required: [true, "comments is required"],
+      required: true,
     },
     histories: {
       type: [],

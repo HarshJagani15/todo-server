@@ -2,42 +2,43 @@ import mongoose from "mongoose";
 import { Document } from "mongoose";
 
 export interface IUser {
+  _id?: object;
   name: string;
   email: string;
   password: string;
-  profilePicture: string;
-  loginType: string;
-  refreshToken: string;
-  refreshTokenExpiry: number;
+  profile_picture: string;
+  login_type: string;
+  refresh_token?: string;
+  refresh_token_expiry?: number;
 }
 
 export type IUserDocument = IUser & Document;
 
 const userSchema = new mongoose.Schema<IUserDocument>(
   {
-    name: { 
+    name: {
       type: String,
-      required: [true, "name is required"],
+      required: true,
     },
     email: {
       type: String,
-      required: [true, "email is required and should be unique"],
+      required: true,
       unique: true,
     },
     password: {
       type: String,
     },
-    profilePicture: {
+    profile_picture: {
       type: String,
     },
-    loginType: {
+    login_type: {
       type: String,
-      required: [true, "login type is required"],
+      required: true,
     },
-    refreshToken: {
+    refresh_token: {
       type: String,
     },
-    refreshTokenExpiry: {
+    refresh_token_expiry: {
       type: Number,
     },
   },

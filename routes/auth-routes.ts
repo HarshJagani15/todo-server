@@ -44,4 +44,4 @@ authRoutes.post(
   validateRequest,
   facebookSignUpController
 );
-authRoutes.post("/refresh-token", validateRequest, refreshTokenController);
+authRoutes.post("/refresh-token", refreshTokenController);

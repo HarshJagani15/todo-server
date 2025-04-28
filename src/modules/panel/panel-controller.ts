@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { QueryHelper } from "../../../utils/search-util";
+import { NextFunction, Request, Response } from "express";
+import { QueryHelper } from "../../../utils/search";
 import {
   addPanel,
   getPanels,
@@ -7,30 +7,21 @@ import {
   updatePanelName,
 } from "./panel-repository";
 
-interface History {
-  timestamp: string;
-  field: string;
-  previous: {
-    heading: string;
-    description: string;
-  };
-  updated: {
-    heading: string;
-    description: string;
-  };
-}
-
-export const getAllPanels = async (req: Request, res: Response) => {
+export const getAllPanels = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const allPanels = await getPanels();
 
     allPanels.map(({ todos }) =>
-      todos.map((todo: any) => {
+      todos.map((todo) => {
         if (todo.histories && Array.isArray(todo.histories)) {
           return {
             ...todo,
             histories: todo.histories.sort(
-              (a: History, b: History) =>
+              (a, b) =>
                 new Date(b.timestamp).getTime() -
                 new Date(a.timestamp).getTime()
             ),
@@ -50,30 +41,30 @@ export const getAllPanels = async (req: Request, res: Response) => {
 
     res.status(200).send(searchingTodo);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error!",
-      error,
-    });
+    next(error);
   }
 };
 
-export const addNewPanel = async (req: Request, res: Response) => {
+export const addNewPanel = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { name } = req.body;
 
     const savedPanel = await addPanel(name);
     res.status(201).json(savedPanel);
   } catch (error) {
-    res.sendStatus(500).json({
-      success: false,
-      message: "Internal Server Error!",
-      error,
-    });
+    next(error);
   }
 };
 
-export const editPanelName = async (req: Request, res: Response) => {
+export const editPanelName = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { _id, name } = req.body;
 
@@ -82,31 +73,25 @@ export const editPanelName = async (req: Request, res: Response) => {
       .status(200)
       .send({ panel_name: updatedPanel?.name, panel_id: updatedPanel?._id });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error!",
-      error,
-    });
+    next(error);
   }
 };
 
-export const deletePanel = async (req: Request, res: Response) => {
+export const deletePanel = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { _id } = req.params;
 
     const deletedPanelId = await removePanel(_id);
-    res
-      .status(200)
-      .send({
-        success: true,
-        message: "Panel deleted successfully",
-        id: deletedPanelId,
-      });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error!",
-      error,
+    res.status(200).send({
+      success: true,
+      message: "Panel deleted successfully",
+      id: deletedPanelId,
     });
+  } catch (error) {
+    next(error);
   }
 };

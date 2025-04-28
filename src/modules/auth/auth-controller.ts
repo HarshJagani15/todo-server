@@ -1,14 +1,11 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { IUserDocument } from "../../../models/user-model";
-import axios from "axios";
-import { refreshFacebookToken } from "../../../utils/refresh-facebook-token";
-import { refreshGitHubToken } from "../../../utils/refresh-github-token";
-import { refreshJwtAuthToken } from "../../../utils/refresh-jwt-auth-token";
 import {
   addNewFacebookUser,
   addNewUser,
-  findUser,
-  saveToken,
+  checkAlreadyRegistered,
+  findUserByEmail,
+  saveTokenInfoInDB,
 } from "./auth-repository";
 import {
   comparePassword,
@@ -16,370 +13,281 @@ import {
   generateToken,
   passwordEncryption,
 } from "./auth-services";
+import { checkLoginType } from "../../../utils/login-type";
+import {
+  ConflictException,
+  InternalErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from "../../../utils/error-exceptions";
+import {
+  retrieveFaceBookLongLivedToken,
+  retrieveFaceBookUserId,
+  retrieveFaceBookUserInfo,
+} from "../../../utils/facebook-apis";
+import {
+  retrieveGitHubAccessToken,
+  retrieveGitHubUserEmail,
+  retrieveGitHubUserInfo,
+} from "../../../utils/github-apis";
 
-export const signInController = async (req: Request, res: Response) => {
+export const signInController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { email, password } = req.body;
-    const user: IUserDocument | null = await findUser(email);
+    const user = await findUserByEmail(email);
 
-    if (!user) {
-      res.status(404).send({
-        success: false,
-        message:
-          "Email address you're using is not associated with any account",
-      });
-    } else if (user.loginType === "email") {
+    if (user.login_type === "email") {
       const isPasswordValid = await comparePassword(password, user.password);
       if (!isPasswordValid) {
-        res
-          .status(401)
-          .json({ success: false, message: "Invalid credentials" });
+        throw new UnauthorizedException("Invalid credentials");
       } else {
         const token = generateToken(email);
         const refreshToken = generateRefreshToken(email);
+
         res.status(200).json({
           success: true,
           token,
           refreshToken,
-          message: "Login successful!",
+          message: "Successfully logged in with Email",
         });
       }
     } else {
-      res.status(409).json({
-        success: false,
-        message: "Email already associated with another account",
-      });
+      throw new ConflictException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
     }
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      error,
-    });
+    next(error);
   }
 };
 
-export const signUpController = async (req: Request, res: Response) => {
+export const signUpController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { userName, email, password, loginType } = req.body;
+    const isUserRegistered = await checkAlreadyRegistered(email);
 
-    const user: IUserDocument | null = await findUser(email);
-    if (!user) {
-      const encryptedPassword = await passwordEncryption(password);
-      await addNewUser({
-        userName,
-        email,
-        password: encryptedPassword,
-        profilePicture: "",
-        loginType,
-      });
-      res.status(201).json({
-        success: true,
-        message: "Registration successful!",
-      });
-    } else {
-      res.status(409).json({
-        success: false,
-        message: "Email already associated with another account",
-      });
+    if (isUserRegistered) {
+      throw new NotFoundException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
     }
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: "Registration fail!",
+    const encryptedPassword = await passwordEncryption(password);
+
+    await addNewUser({
+      name: userName,
+      email,
+      password: encryptedPassword,
+      profile_picture: "",
+      login_type: loginType,
     });
+    res.status(201).json({
+      success: true,
+      message: "Successfully registered with Email",
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
 export const githubSignInController = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
-  const { code } = req.body;
+  const { code: tokenGenerationCode } = req.body;
 
   try {
-    const response = await axios.post(
-      "https://github.com/login/oauth/access_token",
-      null,
-      {
-        params: {
-          client_id: process.env.GITHUB_APP_ID,
-          client_secret: process.env.GITHUB_APP_SECRET_ID,
-          code: code,
-          redirect_uri: "http://localhost:3000/auth/github/callback",
-        },
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-    const { access_token } = response.data;
+    const accessToken = await retrieveGitHubAccessToken(tokenGenerationCode);
 
-    if (!access_token) {
-      res
-        .status(500)
-        .json({ success: false, error: "Failed to retrieve access token" });
-      return;
+    if (!accessToken) {
+      throw new InternalErrorException(
+        "Failed to retrieve GitHub access token."
+      );
     }
 
-    const { data: emails } = await axios.get(
-      "https://api.github.com/user/emails",
-      {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }
-    );
+    const email = await retrieveGitHubUserEmail(accessToken);
 
-    const primaryEmail = emails.find((email: any) => email.primary)?.email;
+    const loginUser: IUserDocument | null = await findUserByEmail(email);
 
-    const loginUser: IUserDocument | null = await findUser(primaryEmail);
-
-    if (!loginUser) {
-      res.status(404).json({
-        success: false,
-        message: "Email Not Registered !",
-      });
-    } else if (loginUser.loginType === "github") {
+    if (loginUser.login_type === "github") {
       res.status(200).json({
         success: true,
-        token: access_token,
-        message: "Login with Github succesfully",
+        token: accessToken,
+        message: "Successfully logged in with GitHub",
       });
     } else {
-      res.status(409).json({
-        success: false,
-        message: "Email already associated with another account",
-      });
+      throw new ConflictException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
     }
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    next(error);
   }
 };
 
 export const githubSignUpController = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
-  const { code, loginType } = req.body;
+  const { code: tokenGenerationCode, loginType } = req.body;
 
   try {
-    const response = await axios.post(
-      "https://github.com/login/oauth/access_token",
-      null,
-      {
-        params: {
-          client_id: process.env.GITHUB_APP_ID,
-          client_secret: process.env.GITHUB_APP_SECRET_ID,
-          code: code,
-          redirect_uri: "http://localhost:3000/auth/github/callback",
-        },
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-    const { access_token } = response.data;
+    const accessToken = await retrieveGitHubAccessToken(tokenGenerationCode);
 
-    if (!access_token) {
-      res
-        .status(500)
-        .json({ success: false, error: "Failed to retrieve access token" });
-    } else {
-      const { data: user } = await axios.get("https://api.github.com/user", {
-        headers: { Authorization: `Bearer ${access_token}` },
-      });
-
-      const { data: emails } = await axios.get(
-        "https://api.github.com/user/emails",
-        {
-          headers: { Authorization: `Bearer ${access_token}` },
-        }
+    if (!accessToken) {
+      throw new InternalErrorException(
+        "Failed to retrieve GitHub access-token"
       );
-
-      const primaryEmail = emails.find((email: any) => email.primary)?.email;
-
-      const loginUser: IUserDocument | null = await findUser(primaryEmail);
-
-      if (!loginUser) {
-        addNewUser({
-          userName: user.login,
-          email: primaryEmail,
-          password: "",
-          profilePicture: user.avatar_url,
-          loginType: loginType,
-        });
-
-        res.status(201).json({
-          success: true,
-          token: access_token,
-          message: "Email Registered Successfully",
-        });
-      } else {
-        res.status(409).json({
-          success: false,
-          message: "Email already associated with another account",
-        });
-      }
     }
+    const { login: name, avatar_url: profile_picture } =
+      await retrieveGitHubUserInfo(accessToken);
+
+    const email = await retrieveGitHubUserEmail(accessToken);
+
+    const isUserRegistered = await checkAlreadyRegistered(email);
+
+    if (isUserRegistered) {
+      throw new NotFoundException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
+    }
+
+    await addNewUser({
+      name,
+      email,
+      password: "",
+      profile_picture,
+      login_type: loginType,
+    });
+
+    res.status(201).json({
+      success: true,
+      token: accessToken,
+      message: "Successfully registered with GitHub",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    next(error);
   }
 };
 
 export const facebookSignInController = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { accessToken } = req.body;
-
-    const debugResponse = await axios.get(process.env.FB_DEBUG_TOKEN_URL!, {
-      params: {
-        input_token: accessToken,
-        access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET_ID}`,
-      },
-    });
-
-    const userId = debugResponse.data.data.user_id;
-
-    const userResponse = await axios.get(
-      `${process.env.FB_USER_INFO_URL!}/${userId}`,
-      {
-        params: {
-          fields: "id,name,email,picture",
-          access_token: accessToken,
-        },
-      }
+    const { data } = await retrieveFaceBookUserId(accessToken);
+    if (!data.is_valid) {
+      throw new UnauthorizedException(
+        "Provided access token is invalid or expired."
+      );
+    }
+    const userFaceBookId = data.user_id;
+    const { email } = await retrieveFaceBookUserInfo(
+      userFaceBookId,
+      accessToken
+    );
+    const longLivedTokenData = await retrieveFaceBookLongLivedToken(
+      accessToken
     );
 
-    const { email } = userResponse.data;
-
-    const exchangeResponse = await axios.get(
-      process.env.FB_EXCHANGE_TOKEN_URL!,
-      {
-        params: {
-          grant_type: "fb_exchange_token",
-          client_id: process.env.FACEBOOK_APP_ID,
-          client_secret: process.env.FACEBOOK_APP_SECRET_ID,
-          fb_exchange_token: accessToken,
-        },
-      }
-    );
-
-    const longLivedToken = exchangeResponse.data.access_token;
-    const expiresIn = exchangeResponse.data.expires_in;
+    const longLivedToken = longLivedTokenData.access_token;
+    const expiresIn = longLivedTokenData.expires_in;
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
-    const user: IUserDocument | null = await findUser(email);
+    const loginUser: IUserDocument | null = await findUserByEmail(email);
 
-    if (!user) {
-      res
-        .status(404)
-        .json({ success: false, message: "Email Not Registered!" });
-    } else if (user?.loginType !== "facebook") {
-      res.status(409).json({
-        success: false,
-        message: "Email already associated with another account",
-      });
+    if (loginUser?.login_type !== "facebook") {
+      throw new ConflictException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
     } else {
-      await saveToken({ user, longLivedToken, expiresAt });
+      await saveTokenInfoInDB({ loginUser, longLivedToken, expiresAt });
 
       res.status(200).json({
         success: true,
         token: longLivedToken,
-        message: "Login with Facebook successful",
+        message: "Successfully logged in with FaceBook",
       });
     }
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error!!!" });
+    next(error);
   }
 };
 
 export const facebookSignUpController = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { accessToken, loginType } = req.body;
-    const debugResponse = await axios.get(process.env.FB_DEBUG_TOKEN_URL!, {
-      params: {
-        input_token: accessToken,
-        access_token: `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET_ID}`,
-      },
-    });
+    const { data } = await retrieveFaceBookUserId(accessToken);
+    if (!data.is_valid) {
+      throw new UnauthorizedException(
+        "Provided access token is invalid or expired."
+      );
+    }
+    const userFaceBookId = data.user_id;
 
-    const userId = debugResponse.data.data.user_id;
-
-    const userResponse = await axios.get(
-      `${process.env.FB_USER_INFO_URL}/${userId}`,
-      {
-        params: {
-          fields: "id,name,email,picture",
-          access_token: accessToken,
-        },
-      }
+    const { name, email, picture } = await retrieveFaceBookUserInfo(
+      userFaceBookId,
+      accessToken
     );
 
-    const { name, email, picture } = userResponse.data;
-
-    const exchangeResponse = await axios.get(
-      process.env.FB_EXCHANGE_TOKEN_URL!,
-      {
-        params: {
-          grant_type: "fb_exchange_token",
-          client_id: process.env.FACEBOOK_APP_ID,
-          client_secret: process.env.FACEBOOK_APP_SECRET_ID,
-          fb_exchange_token: accessToken,
-        },
-      }
+    const longLivedTokenData = await retrieveFaceBookLongLivedToken(
+      accessToken
     );
 
-    const longLivedToken = exchangeResponse.data.access_token;
-    const expiresIn = exchangeResponse.data.expires_in;
+    const longLivedToken = longLivedTokenData.access_token;
+    const expiresIn = longLivedTokenData.expires_in;
     const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
 
-    const loginUser = await findUser(email);
+    const isUserRegistered = await checkAlreadyRegistered(email);
 
-    if (!loginUser) {
-      const requestPayload = {
-        name,
-        email,
-        password: "",
-        profilePicture: picture.data.url,
-        loginType: loginType,
-        refreshToken: longLivedToken,
-        refreshTokenExpiry: expiresAt,
-      };
-
-      addNewFacebookUser(requestPayload);
-
-      res.status(201).json({
-        success: true,
-        token: longLivedToken,
-        message: "Sign up with facebook succesfully",
-      });
-    } else {
-      res.status(409).json({
-        success: false,
-        message: "Email already associated with another account",
-      });
+    if (isUserRegistered) {
+      throw new NotFoundException(
+        "Email address you're trying to use is already associated with an existing account"
+      );
     }
+
+    const requestPayload = {
+      name,
+      email,
+      password: "",
+      profile_picture: picture.data.url,
+      login_type: loginType,
+      refresh_token: longLivedToken,
+      refresh_token_expiry: expiresAt,
+    };
+
+    addNewFacebookUser(requestPayload);
+
+    res.status(201).json({
+      success: true,
+      token: longLivedToken,
+      message: "Successfully registered with FaceBook",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    next(error);
   }
 };
 
 export const refreshTokenController = async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   const { accessToken } = req.body;
-
-  if (accessToken?.startsWith("EAA")) {
-    return refreshFacebookToken(req, res);
-  } else if (/^gh[p|o]_[A-Za-z0-9]+$/.test(accessToken!)) {
-    return refreshGitHubToken(req, res);
-  } else {
-    return refreshJwtAuthToken(req, res);
-  }
+  checkLoginType(req, res, next, accessToken);
 };

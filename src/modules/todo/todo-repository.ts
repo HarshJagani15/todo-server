@@ -1,6 +1,6 @@
 import { CommentModel } from "../../../models/comment-model";
 import { PanelModel } from "../../../models/panel-model";
-import { TodoModel } from "../../../models/todo-model";
+import { IHistory, TodoModel } from "../../../models/todo-model";
 
 interface IChangeTodoStatus {
   todoId: object;
@@ -18,19 +18,6 @@ interface IUpdateTodoHeading extends IAddNewTodo {}
 interface IUpdateTodoDescription {
   id: object;
   description: string;
-}
-
-export interface IHistory {
-  timestamp: string;
-  field: string;
-  previous: {
-    heading?: string;
-    description?: string | null;
-  };
-  updated: {
-    heading?: string;
-    description?: string | null;
-  };
 }
 
 interface ITodoHistoryUpdate {

@@ -1,8 +1,12 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { userModel } from "../../../models/user-model";
 import { updateUserName } from "./user-repository";
 
-export const userProfileController = async (req: Request, res: Response) => {
+export const userProfileController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { email } = req.user;
     const loginUser = await userModel.findOne({ email });
@@ -10,19 +14,25 @@ export const userProfileController = async (req: Request, res: Response) => {
     const user = {
       name: loginUser?.name,
       email: loginUser?.email,
-      profileImage: loginUser?.profilePicture,
+      profileImage: loginUser?.profile_picture,
     };
-    res.status(200).json({ success: true, user });
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "User profile fetched successfully",
+        user,
+      });
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      message: "Fail to get user info!",
-      error,
-    });
+    next(error);
   }
 };
 
-export const editUserName = async (req: Request, res: Response) => {
+export const editUserName = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { name } = req.body;
     const { email } = req.user;
@@ -33,8 +43,6 @@ export const editUserName = async (req: Request, res: Response) => {
       userName: user?.name,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ succes: false, message: "Fail to update username!" });
+    next(error);
   }
 };
