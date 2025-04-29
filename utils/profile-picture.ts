@@ -3,15 +3,8 @@ import { NextFunction, Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import { userModel } from "../models/user-model";
-import { BadRequestException, NotFoundException } from "./error-exceptions";
-
-declare global {
-  namespace Express {
-    interface Request {
-      user: any;
-    }
-  }
-}
+import { BadRequestException } from "./error-exceptions";
+import { USER_PROFILE, USER_PROFILE_EXCEPTION } from "./constants";
 
 const storage = multer.diskStorage({
   destination: function (_req, _file, cb) {
@@ -36,7 +29,9 @@ export const updateProfilePicture = async (
 ): Promise<void> => {
   try {
     if (!req.file) {
-      throw new BadRequestException("No file uploaded!");
+      throw new BadRequestException(
+        USER_PROFILE_EXCEPTION.BADREQUEST.FILE_UPLOAD
+      );
     }
 
     const { email } = req.user;
@@ -45,13 +40,10 @@ export const updateProfilePicture = async (
       email,
     });
 
-    if (!user) {
-      throw new NotFoundException(
-        "Email address you're using is not associated with any account"
-      );
-    }
-
-    if (!user?.profile_picture?.startsWith("https://") && user?.profile_picture) {
+    if (
+      !user?.profile_picture?.startsWith("https://") &&
+      user?.profile_picture
+    ) {
       const filePath = path.join(
         __dirname,
         "../uploads",
@@ -65,16 +57,16 @@ export const updateProfilePicture = async (
       await user.save();
 
       res.status(200).json({
-        message: "Profile picture uploaded successfully",
+        message: USER_PROFILE.UPDATE_PICTURE,
         filePath: req.file?.filename,
       });
       return;
-    } else {
+    } else if (user) {
       user.profile_picture = req.file?.filename;
       await user?.save();
 
       res.status(200).json({
-        message: "Profile picture uploaded successfully",
+        message: USER_PROFILE.UPDATE_PICTURE,
         filePath: req.file?.filename,
       });
       return;

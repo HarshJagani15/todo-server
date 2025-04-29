@@ -26,7 +26,7 @@ const panelSchema = new mongoose.Schema<IPanelDocument>(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
-export const PanelModel = mongoose.model("Panel", panelSchema);
+export const panelModel = mongoose.model("Panel", panelSchema);

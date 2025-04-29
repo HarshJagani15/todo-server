@@ -20,7 +20,7 @@ const commentSchema = new mongoose.Schema<ICommentDocument>(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
-export const CommentModel = mongoose.model("Comment", commentSchema);
+export const commentModel = mongoose.model("Comment", commentSchema);

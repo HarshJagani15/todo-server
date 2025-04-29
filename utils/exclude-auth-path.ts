@@ -3,6 +3,7 @@ import { verifyFacebookToken } from "../core/middleware/facebook-auth";
 import { verifyGitHubToken } from "../core/middleware/github-auth";
 import { verifyJwtToken } from "../core/middleware/jwt-auth";
 import { NotFoundException } from "./error-exceptions";
+import { AUTH_EXCEPTION } from "./constants";
 
 export const excludeAuthPaths = (
   req: Request,
@@ -19,7 +20,7 @@ export const excludeAuthPaths = (
   }
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
-    throw new NotFoundException("Access Denied! No token provided.");
+    throw new NotFoundException(AUTH_EXCEPTION.NOTFOUND.TOKEN);
   }
   if (token?.startsWith("EAA")) {
     return verifyFacebookToken(req, res, next, token);

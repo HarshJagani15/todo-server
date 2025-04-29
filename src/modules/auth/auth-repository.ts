@@ -1,4 +1,5 @@
 import { IUser, IUserDocument, userModel } from "../../../models/user-model";
+import { AUTH_EXCEPTION } from "../../../utils/constants";
 import { NotFoundException } from "../../../utils/error-exceptions";
 
 interface IUserToken {
@@ -11,9 +12,7 @@ export const findUserByEmail = async (email: string) => {
   const user = await userModel.findOne({ email });
 
   if (!user) {
-    throw new NotFoundException(
-      "Email address you're using is not associated with any account"
-    );
+    throw new NotFoundException(AUTH_EXCEPTION.NOTFOUND.EMAIL);
   }
   return user;
 };

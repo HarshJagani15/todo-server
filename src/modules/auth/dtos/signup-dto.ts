@@ -6,13 +6,7 @@ export const signUpValidation = [
     .withMessage("Username is required!")
     .bail()
     .isString()
-    .withMessage("Username must be a string")
-    .bail()
-    .isLength({ min: 6 })
-    .withMessage("Username is must be atleast 6 character")
-    .bail()
-    .isLength({ max: 16 })
-    .withMessage("Username is must be less than 16 character"),
+    .withMessage("Username must be a string"),
 
   body("email")
     .notEmpty()

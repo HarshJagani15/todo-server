@@ -1,6 +1,6 @@
-import { CommentModel } from "../../../models/comment-model";
-import { PanelModel } from "../../../models/panel-model";
-import { TodoModel } from "../../../models/todo-model";
+import { commentModel } from "../../../models/comment-model";
+import { panelModel } from "../../../models/panel-model";
+import { todoModel } from "../../../models/todo-model";
 
 interface IUpdatePanelName {
   id: object;
@@ -8,7 +8,8 @@ interface IUpdatePanelName {
 }
 
 export const getPanels = async () => {
-  const allPanels = await PanelModel.find()
+  const allPanels = await panelModel
+    .find()
     .populate({
       path: "todos",
       model: "Todo",
@@ -23,7 +24,7 @@ export const getPanels = async () => {
 };
 
 export const addPanel = async (name: string) => {
-  const newPanel = await PanelModel.create({
+  const newPanel = await panelModel.create({
     name,
     todos: [],
   });
@@ -32,7 +33,7 @@ export const addPanel = async (name: string) => {
 };
 
 export const updatePanelName = async (payload: IUpdatePanelName) => {
-  const updatedName = await PanelModel.findByIdAndUpdate(
+  const updatedName = await panelModel.findByIdAndUpdate(
     payload.id,
     {
       name: payload.name,
@@ -44,13 +45,13 @@ export const updatePanelName = async (payload: IUpdatePanelName) => {
 };
 
 export const removePanel = async (id: string) => {
-  const deletedPanel = await PanelModel.findByIdAndDelete(id);
+  const deletedPanel = await panelModel.findByIdAndDelete(id);
 
-  const deletedTodos = await TodoModel.find({ panel: id });
+  const deletedTodos = await todoModel.find({ panel: id });
   const commentIds = deletedTodos.flatMap((todo) => todo.comments);
-  await CommentModel.deleteMany({ _id: { $in: commentIds } });
+  await commentModel.deleteMany({ _id: { $in: commentIds } });
 
-  await TodoModel.deleteMany({ panel: id });
+  await todoModel.deleteMany({ panel: id });
 
   return deletedPanel?._id;
 };

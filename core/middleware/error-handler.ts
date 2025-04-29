@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { CustomError } from "../../utils/error-exceptions";
+import { DEFAULT_EXCEPTION } from "../../utils/constants";
 
 const globalErrorHandler: (
-  err: any,
+  err: Error,
   req: Request,
   res: Response,
   next: NextFunction
@@ -11,13 +12,13 @@ const globalErrorHandler: (
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
-      code: err.code ?? "INTERNAL_ERROR",
+      code: err.code,
     });
   }
 
   return res.status(500).json({
     success: false,
-    message: "Something went wrong",
+    message: DEFAULT_EXCEPTION.INTERNAL_SERVER,
   });
 };
 

@@ -38,7 +38,9 @@ export const retrieveGitHubUserEmail = async (accessToken: string) => {
     }
   );
 
-  const primaryEmail = emails.find((email: any) => email.primary)?.email;
+  const primaryEmail = emails.find(
+    (email: { primary: boolean }) => email.primary
+  )?.email;
 
   return primaryEmail;
 };

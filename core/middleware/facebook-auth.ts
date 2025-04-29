@@ -5,6 +5,7 @@ import {
   retrieveFaceBookUserId,
   retrieveFaceBookUserInfo,
 } from "../../utils/facebook-apis";
+import { AUTH_EXCEPTION } from "../../utils/constants";
 
 export const verifyFacebookToken = async (
   req: Request,
@@ -20,13 +21,14 @@ export const verifyFacebookToken = async (
     });
     const userFaceBookId = data.user_id;
 
-    const { email } = await retrieveFaceBookUserInfo(userFaceBookId, token).catch(
-      () => {
-        throw new UnauthorizedException(
-          "Invalid or expired Facebook access token."
-        );
-      }
-    );
+    const { email } = await retrieveFaceBookUserInfo(
+      userFaceBookId,
+      token
+    ).catch(() => {
+      throw new UnauthorizedException(
+        "Invalid or expired Facebook access token."
+      );
+    });
     const loginUser = await findUserByEmail(email);
 
     const refreshTokenExpiry = loginUser.refresh_token_expiry!;
@@ -35,8 +37,8 @@ export const verifyFacebookToken = async (
     const FIVE_DAYS_IN_SECONDS = 5 * 24 * 60 * 60;
     if (refreshTokenExpiry - currentTime < FIVE_DAYS_IN_SECONDS) {
       throw new UnauthorizedException(
-        "Provided access token is about to expire.",
-        "AUTH_TOKEN_EXPIRED"
+        AUTH_EXCEPTION.UNAUTHORIZED.FACEBOOK_TOKEN,
+        AUTH_EXCEPTION.UNAUTHORIZED.AUTH_TOKEN_CODE
       );
     }
     req.user = { email };

@@ -5,7 +5,6 @@ interface Params {
   searchFields: string[];
 }
 
-
 export class QueryHelper<T extends { todos: ITodo[] }> {
   private data: T[];
 
@@ -18,9 +17,9 @@ export class QueryHelper<T extends { todos: ITodo[] }> {
     if (params.search && params.searchFields?.length) {
       panels = panels.map((panel) => ({
         ...panel,
-        todos: panel.todos.filter((todo: any) =>
-          params.searchFields!.some((field: any) =>
-            String(todo[field])
+        todos: panel.todos.filter((todo) =>
+          params.searchFields!.some((field) =>
+            String(todo[field as keyof ITodo])
               .toLowerCase()
               .includes(params.search!.toLowerCase())
           )

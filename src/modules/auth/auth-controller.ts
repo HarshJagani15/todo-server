@@ -17,7 +17,6 @@ import { checkLoginType } from "../../../utils/login-type";
 import {
   ConflictException,
   InternalErrorException,
-  NotFoundException,
   UnauthorizedException,
 } from "../../../utils/error-exceptions";
 import {
@@ -30,6 +29,7 @@ import {
   retrieveGitHubUserEmail,
   retrieveGitHubUserInfo,
 } from "../../../utils/github-apis";
+import { AUTH_EXCEPTION, AUTH } from "../../../utils/constants";
 
 export const signInController = async (
   req: Request,
@@ -43,7 +43,9 @@ export const signInController = async (
     if (user.login_type === "email") {
       const isPasswordValid = await comparePassword(password, user.password);
       if (!isPasswordValid) {
-        throw new UnauthorizedException("Invalid credentials");
+        throw new UnauthorizedException(
+         AUTH_EXCEPTION.UNAUTHORIZED.CREDENTIALS
+        );
       } else {
         const token = generateToken(email);
         const refreshToken = generateRefreshToken(email);
@@ -52,13 +54,11 @@ export const signInController = async (
           success: true,
           token,
           refreshToken,
-          message: "Successfully logged in with Email",
+          message: AUTH.LOGIN.EMAIL,
         });
       }
     } else {
-      throw new ConflictException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     }
   } catch (error) {
     next(error);
@@ -75,9 +75,7 @@ export const signUpController = async (
     const isUserRegistered = await checkAlreadyRegistered(email);
 
     if (isUserRegistered) {
-      throw new NotFoundException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     }
     const encryptedPassword = await passwordEncryption(password);
 
@@ -90,7 +88,7 @@ export const signUpController = async (
     });
     res.status(201).json({
       success: true,
-      message: "Successfully registered with Email",
+      message: AUTH.REGISTER.EMAIL,
     });
   } catch (error) {
     next(error);
@@ -109,7 +107,7 @@ export const githubSignInController = async (
 
     if (!accessToken) {
       throw new InternalErrorException(
-        "Failed to retrieve GitHub access token."
+        AUTH_EXCEPTION.INTERNAL_SERVER.FAILED_TO_RETRIVE_GITHUB_TOKEN
       );
     }
 
@@ -121,12 +119,10 @@ export const githubSignInController = async (
       res.status(200).json({
         success: true,
         token: accessToken,
-        message: "Successfully logged in with GitHub",
+        message: AUTH.LOGIN.GITHUB,
       });
     } else {
-      throw new ConflictException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     }
   } catch (error) {
     next(error);
@@ -145,7 +141,7 @@ export const githubSignUpController = async (
 
     if (!accessToken) {
       throw new InternalErrorException(
-        "Failed to retrieve GitHub access-token"
+        AUTH_EXCEPTION.INTERNAL_SERVER.FAILED_TO_RETRIVE_GITHUB_TOKEN
       );
     }
     const { login: name, avatar_url: profile_picture } =
@@ -156,9 +152,7 @@ export const githubSignUpController = async (
     const isUserRegistered = await checkAlreadyRegistered(email);
 
     if (isUserRegistered) {
-      throw new NotFoundException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     }
 
     await addNewUser({
@@ -172,7 +166,7 @@ export const githubSignUpController = async (
     res.status(201).json({
       success: true,
       token: accessToken,
-      message: "Successfully registered with GitHub",
+      message: AUTH.REGISTER.GITHUB,
     });
   } catch (error) {
     next(error);
@@ -189,7 +183,7 @@ export const facebookSignInController = async (
     const { data } = await retrieveFaceBookUserId(accessToken);
     if (!data.is_valid) {
       throw new UnauthorizedException(
-        "Provided access token is invalid or expired."
+       AUTH_EXCEPTION.UNAUTHORIZED.FACEBOOK_TOKEN
       );
     }
     const userFaceBookId = data.user_id;
@@ -208,16 +202,14 @@ export const facebookSignInController = async (
     const loginUser: IUserDocument | null = await findUserByEmail(email);
 
     if (loginUser?.login_type !== "facebook") {
-      throw new ConflictException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     } else {
       await saveTokenInfoInDB({ loginUser, longLivedToken, expiresAt });
 
       res.status(200).json({
         success: true,
         token: longLivedToken,
-        message: "Successfully logged in with FaceBook",
+        message: AUTH.LOGIN.FACEBOOK,
       });
     }
   } catch (error) {
@@ -235,7 +227,7 @@ export const facebookSignUpController = async (
     const { data } = await retrieveFaceBookUserId(accessToken);
     if (!data.is_valid) {
       throw new UnauthorizedException(
-        "Provided access token is invalid or expired."
+       AUTH_EXCEPTION.UNAUTHORIZED.FACEBOOK_TOKEN
       );
     }
     const userFaceBookId = data.user_id;
@@ -256,9 +248,7 @@ export const facebookSignUpController = async (
     const isUserRegistered = await checkAlreadyRegistered(email);
 
     if (isUserRegistered) {
-      throw new NotFoundException(
-        "Email address you're trying to use is already associated with an existing account"
-      );
+      throw new ConflictException(AUTH_EXCEPTION.CONFLICT.EMAIL);
     }
 
     const requestPayload = {
@@ -276,7 +266,7 @@ export const facebookSignUpController = async (
     res.status(201).json({
       success: true,
       token: longLivedToken,
-      message: "Successfully registered with FaceBook",
+      message: AUTH.REGISTER.FACEBOOK,
     });
   } catch (error) {
     next(error);

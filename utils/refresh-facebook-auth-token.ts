@@ -6,6 +6,7 @@ import {
   retrieveFaceBookUserInfo,
 } from "./facebook-apis";
 import { UnauthorizedException } from "./error-exceptions";
+import { AUTH } from "./constants";
 
 export const refreshFacebookToken = async (
   req: Request,
@@ -41,7 +42,7 @@ export const refreshFacebookToken = async (
     res.status(201).json({
       success: true,
       accessToken: longLivedToken,
-      message: "Token Refreshed Successfully",
+      message: AUTH.TOKEN.REFRESH,
     });
   } catch (error) {
     next(error);

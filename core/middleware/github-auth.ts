@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { findUserByEmail } from "../../src/modules/auth/auth-repository";
 import { retrieveGitHubUserEmail } from "../../utils/github-apis";
 import { UnauthorizedException } from "../../utils/error-exceptions";
+import { AUTH_EXCEPTION } from "../../utils/constants";
 
 export const verifyGitHubToken = async (
   req: Request,
@@ -12,7 +13,7 @@ export const verifyGitHubToken = async (
   try {
     const email = await retrieveGitHubUserEmail(token).catch(() => {
       throw new UnauthorizedException(
-        "Invalid or expired GitHub access token."
+       AUTH_EXCEPTION.UNAUTHORIZED.GITHUB_TOKEN
       );
     });
     req.user = { email };

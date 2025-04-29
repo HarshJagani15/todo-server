@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema<IUserDocument>(
       type: Number,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
 export const userModel = mongoose.model("users", userSchema);

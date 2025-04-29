@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedException } from "./error-exceptions";
+import { AUTH, AUTH_EXCEPTION } from "./constants";
 
 export const refreshJwtAuthToken = async (
   req: Request,
@@ -13,9 +14,7 @@ export const refreshJwtAuthToken = async (
       const { refreshToken } = req.body;
       decoded = jwt.verify(refreshToken, process.env.JWT_SECRET!);
     } catch (error) {
-      throw new UnauthorizedException(
-        "Provided refresh token is invalid or expired."
-      );
+      throw new UnauthorizedException(AUTH_EXCEPTION.UNAUTHORIZED.AUTH_TOKEN);
     }
     const { email } = decoded as JwtPayload;
     const accessToken = jwt.sign({ email }, process.env.JWT_SECRET!, {
@@ -29,7 +28,7 @@ export const refreshJwtAuthToken = async (
       success: true,
       accessToken,
       refreshToken,
-      message: "Token Refreshed Successfully",
+      message: AUTH.TOKEN.REFRESH,
     });
   } catch (error) {
     next(error);

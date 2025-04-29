@@ -12,6 +12,7 @@ import {
   updateTodoHeading,
 } from "./todo-repository";
 import { ConflictException } from "../../../utils/error-exceptions";
+import { TODO_COMMENT, TODO_EXCEPTION, TODO } from "../../../utils/constants";
 
 export const updateTodoStatus = async (
   req: Request,
@@ -44,7 +45,7 @@ export const addTodo = async (
 
     res.status(201).json({
       success: true,
-      message: "Todo added successfully",
+      message: TODO.ADD,
       addedTodo,
       _id,
     });
@@ -86,13 +87,13 @@ export const editTodoHeading = async (
 
       res.status(200).json({
         success: true,
-        message: "Todo heading edited successfully",
+        message: TODO.UPDATE_HEADING,
         heading: newTodo?.heading,
         todo_id: newTodo?._id,
         history: updatedTodo?.histories,
       });
     } else {
-      throw new ConflictException("Heading is same as previous one");
+      throw new ConflictException(TODO_EXCEPTION.CONFLICT.HEADING);
     }
   } catch (error) {
     next(error);
@@ -130,13 +131,13 @@ export const editTodoDescription = async (
       );
       res.status(200).json({
         success: true,
-        message: "Todo description edited successfully",
+        message: TODO.UPDATE_DESCRIPTION,
         description: newTodo?.description,
         todo_id: newTodo?._id,
         history: updatedTodo?.histories,
       });
     } else {
-      throw new ConflictException("Description is same as previous one");
+      throw new ConflictException(TODO_EXCEPTION.CONFLICT.DESCRIPTION);
     }
   } catch (error) {
     next(error);
@@ -153,7 +154,7 @@ export const deleteTodo = async (
     const deletedTodoId = await removeTodo(_id);
     res.status(200).json({
       success: true,
-      message: "Todo deleted successfully",
+      message: TODO.DELETE,
       id: deletedTodoId,
     });
   } catch (error) {
@@ -173,7 +174,7 @@ export const addComment = async (
 
     res.status(201).json({
       success: true,
-      message: "Comment added successfully",
+      message: TODO_COMMENT.ADD,
       comment: newComment,
       todo_id: _id,
     });
@@ -194,7 +195,7 @@ export const editComment = async (
 
     res.status(200).json({
       success: true,
-      message: "Comment edited successfully",
+      message: TODO_COMMENT.UPDATE,
       newUpdatedComment: updatedComment?.comment,
       commentId: updatedComment?._id,
       todoId: todo_id,
@@ -218,7 +219,7 @@ export const deleteComment = async (
     });
     res.status(200).json({
       success: true,
-      message: "Comment deleted successfully",
+      message: TODO_COMMENT.DELETE,
       todoId: todo_id,
       commentId: deletedComment?._id,
     });

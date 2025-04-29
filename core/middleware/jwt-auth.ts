@@ -2,6 +2,15 @@ import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 import { UnauthorizedException } from "../../utils/error-exceptions";
 import { findUserByEmail } from "../../src/modules/auth/auth-repository";
+import { AUTH_EXCEPTION } from "../../utils/constants";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user: any;
+    }
+  }
+}
 
 export const verifyJwtToken = async (
   req: Request,
@@ -15,8 +24,8 @@ export const verifyJwtToken = async (
       req.user = decoded;
     } catch (error) {
       throw new UnauthorizedException(
-        "Provided access token is invalid or expired.",
-        "AUTH_TOKEN_EXPIRED"
+        AUTH_EXCEPTION.UNAUTHORIZED.AUTH_TOKEN,
+        AUTH_EXCEPTION.UNAUTHORIZED.AUTH_TOKEN_CODE
       );
     }
     const email = req.user.email;

@@ -1,6 +1,6 @@
-import { CommentModel } from "../../../models/comment-model";
-import { PanelModel } from "../../../models/panel-model";
-import { IHistory, TodoModel } from "../../../models/todo-model";
+import { commentModel } from "../../../models/comment-model";
+import { panelModel } from "../../../models/panel-model";
+import { IHistory, todoModel } from "../../../models/todo-model";
 
 interface IChangeTodoStatus {
   todoId: object;
@@ -41,15 +41,15 @@ interface IDeleteExistingComment {
 }
 
 export const changeTodoStatus = async (payload: IChangeTodoStatus) => {
-  await TodoModel.findByIdAndUpdate(payload.todoId, {
+  await todoModel.findByIdAndUpdate(payload.todoId, {
     panel: payload.targetPanelId,
   });
-  await PanelModel.findByIdAndUpdate(
+  await panelModel.findByIdAndUpdate(
     payload.sourcePanelId,
     { $pull: { todos: payload.todoId } },
     { new: true }
   );
-  await PanelModel.findByIdAndUpdate(
+  await panelModel.findByIdAndUpdate(
     payload.targetPanelId,
     { $push: { todos: payload.todoId } },
     { new: true }
@@ -57,7 +57,7 @@ export const changeTodoStatus = async (payload: IChangeTodoStatus) => {
 };
 
 export const addNewTodo = async (payload: IAddNewTodo) => {
-  const addedTodo = await TodoModel.create({
+  const addedTodo = await todoModel.create({
     heading: payload.heading,
     description: "",
     comments: [],
@@ -65,7 +65,7 @@ export const addNewTodo = async (payload: IAddNewTodo) => {
     panel: payload.id,
   });
 
-  await PanelModel.findByIdAndUpdate(
+  await panelModel.findByIdAndUpdate(
     payload.id,
     { $push: { todos: addedTodo._id } },
     { new: true }
@@ -75,12 +75,12 @@ export const addNewTodo = async (payload: IAddNewTodo) => {
 };
 
 export const findPrevTodo = async (id: object) => {
-  const prevTodo = await TodoModel.findById(id);
+  const prevTodo = await todoModel.findById(id);
   return prevTodo;
 };
 
 export const updateTodoHeading = async (payload: IUpdateTodoHeading) => {
-  const newTodo = await TodoModel.findByIdAndUpdate(
+  const newTodo = await todoModel.findByIdAndUpdate(
     payload.id,
     { heading: payload.heading },
     { new: true }
@@ -89,7 +89,7 @@ export const updateTodoHeading = async (payload: IUpdateTodoHeading) => {
 };
 
 export const TodoHistoryUpdate = async (payload: ITodoHistoryUpdate) => {
-  const updatedTodo = await TodoModel.findByIdAndUpdate(
+  const updatedTodo = await todoModel.findByIdAndUpdate(
     payload.id,
     {
       $push: { histories: payload.history },
@@ -103,7 +103,7 @@ export const TodoHistoryUpdate = async (payload: ITodoHistoryUpdate) => {
 export const updateTodoDescription = async (
   payload: IUpdateTodoDescription
 ) => {
-  const newTodo = await TodoModel.findByIdAndUpdate(
+  const newTodo = await todoModel.findByIdAndUpdate(
     payload.id,
     { description: payload.description },
     { new: true }
@@ -112,17 +112,17 @@ export const updateTodoDescription = async (
 };
 
 export const removeTodo = async (id: object) => {
-  await TodoModel.findByIdAndDelete(id);
+  await todoModel.findByIdAndDelete(id);
 };
 
 export const addNewComment = async (payload: IAddNewComment) => {
-  const newComment = await CommentModel.create({
+  const newComment = await commentModel.create({
     comment: payload.comment,
     date: Date.now(),
     todo: payload.id,
   });
 
-  await TodoModel.findByIdAndUpdate(payload.id, {
+  await todoModel.findByIdAndUpdate(payload.id, {
     $push: { comments: newComment._id },
   });
 
@@ -130,7 +130,7 @@ export const addNewComment = async (payload: IAddNewComment) => {
 };
 
 export const editExistingComment = async (payload: IEditExistingComment) => {
-  const updatedComment = await CommentModel.findByIdAndUpdate(
+  const updatedComment = await commentModel.findByIdAndUpdate(
     payload.id,
     {
       $set: {
@@ -147,10 +147,10 @@ export const editExistingComment = async (payload: IEditExistingComment) => {
 export const deleteExistingComment = async (
   payload: IDeleteExistingComment
 ) => {
-  const deletedComment = await CommentModel.findByIdAndDelete(
+  const deletedComment = await commentModel.findByIdAndDelete(
     payload.commentId
   );
-  await TodoModel.findByIdAndUpdate(
+  await todoModel.findByIdAndUpdate(
     payload.todoId,
     { $pull: { comments: payload.commentId } },
     { new: true }

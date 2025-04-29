@@ -6,6 +6,7 @@ import {
   removePanel,
   updatePanelName,
 } from "./panel-repository";
+import { PANEL } from "../../../utils/constants";
 
 export const getAllPanels = async (
   req: Request,
@@ -39,7 +40,11 @@ export const getAllPanels = async (
       searchFields: ["heading"],
     });
 
-    res.status(200).send(searchingTodo);
+    res.status(200).send({
+      success: true,
+      message: PANEL.FETCHED,
+      panels: searchingTodo,
+    });
   } catch (error) {
     next(error);
   }
@@ -53,8 +58,12 @@ export const addNewPanel = async (
   try {
     const { name } = req.body;
 
-    const savedPanel = await addPanel(name);
-    res.status(201).json(savedPanel);
+    const newPanel = await addPanel(name);
+    res.status(201).json({
+      success: true,
+      message: PANEL.ADD,
+      newPanel,
+    });
   } catch (error) {
     next(error);
   }
@@ -69,9 +78,12 @@ export const editPanelName = async (
     const { _id, name } = req.body;
 
     const updatedPanel = await updatePanelName({ id: _id, name });
-    res
-      .status(200)
-      .send({ panel_name: updatedPanel?.name, panel_id: updatedPanel?._id });
+    res.status(200).send({
+      success: true,
+      message: PANEL.UPDATE_NAME,
+      panel_name: updatedPanel?.name,
+      panel_id: updatedPanel?._id,
+    });
   } catch (error) {
     next(error);
   }
@@ -88,7 +100,7 @@ export const deletePanel = async (
     const deletedPanelId = await removePanel(_id);
     res.status(200).send({
       success: true,
-      message: "Panel deleted successfully",
+      message: PANEL.DELETE,
       id: deletedPanelId,
     });
   } catch (error) {

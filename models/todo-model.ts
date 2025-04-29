@@ -54,7 +54,7 @@ const todoSchema = new mongoose.Schema<ITodoDocument>(
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
-export const TodoModel = mongoose.model("Todo", todoSchema);
+export const todoModel = mongoose.model("Todo", todoSchema);

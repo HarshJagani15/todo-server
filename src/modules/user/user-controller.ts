@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { userModel } from "../../../models/user-model";
 import { updateUserName } from "./user-repository";
+import { USER_PROFILE } from "../../../utils/constants";
 
 export const userProfileController = async (
   req: Request,
@@ -16,13 +17,11 @@ export const userProfileController = async (
       email: loginUser?.email,
       profileImage: loginUser?.profile_picture,
     };
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "User profile fetched successfully",
-        user,
-      });
+    res.status(200).json({
+      success: true,
+      message: USER_PROFILE.FETCHED,
+      user,
+    });
   } catch (error) {
     next(error);
   }
@@ -39,7 +38,7 @@ export const editUserName = async (
     const user = await updateUserName({ email, name });
     res.status(200).json({
       succes: true,
-      message: "Username updated successfully",
+      message: USER_PROFILE.UPDATE_NAME,
       userName: user?.name,
     });
   } catch (error) {
